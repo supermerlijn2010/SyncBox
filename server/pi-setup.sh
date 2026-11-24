@@ -222,6 +222,17 @@ find_client() {
   fi
 }
 
+show_address() {
+  local ip
+  # home networks are almost always 192.168.x.x; VPNs (like NordVPN's 10.5.0.2) come last
+  ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' |
+        awk '/^192\.168\./ {print 0, $0; next} /^10\.5\./ {print 2, $0; next} {print 1, $0}' |
+        sort -n | head -1 | cut -d' ' -f2)"
+  echo "     http://$(hostname).local"
+  [ -n "$ip" ] && echo "  or http://$ip      (use this one if the first doesn't open)"
+  return 0
+}
+
 update() {
   [ -f "$SERVICE" ] || { echo "SyncBox isn't installed yet. Run: bash server/pi-setup.sh"; exit 1; }
   find_client
@@ -231,7 +242,8 @@ update() {
   write_service
   sudo systemctl restart syncbox
   echo "Done. On each Windows computer, download SyncBox again from the website and run it"
-  echo "to get the newest app."
+  echo "to get the newest app. Your SyncBox website:"
+  show_address
 }
 
 install() {
@@ -264,7 +276,7 @@ install() {
   echo "================================================================"
   echo " Done! Open this on any computer in your home network:"
   echo
-  echo "     http://$(hostname).local"
+  show_address
   echo
   echo " Log in, click 'Download SyncBox for Windows', run it. That's it."
   echo " Files are saved in $DATA_DIR."

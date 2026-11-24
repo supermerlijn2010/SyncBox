@@ -275,11 +275,12 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
         <pre><code><span data-clone>git clone https://github.com/USER/syncbox</span>
 cd SyncBox
 bash server/pi-setup.sh</code></pre>
-        <p class="muted" style="margin:10px 0 0;font-size:14px">You choose where to save the files (SD card or a USB drive) and a password, and then your SyncBox runs at <code>http://raspberrypi.local</code>.</p>
+        <p class="muted" style="margin:10px 0 0;font-size:14px">You choose where to save the files (SD card or a USB drive) and a password. At the end, the setup <b>shows the address of your SyncBox</b>, for example <code>http://raspberrypi.local</code> and <code>http://192.168.1.25</code>. Write both down.</p>
       </div>
       <div class="card">
         <h3>2. On each computer</h3>
-        <p class="muted" style="margin:6px 0 0">Open <code>http://raspberrypi.local</code>, log in and click <b>Download SyncBox for Windows</b>. Run it and pick your folders. Done.</p>
+        <p class="muted" style="margin:6px 0 0">Open that address, log in and click <b>Download SyncBox for Windows</b>. Run it and pick your folders. Done.</p>
+        <p class="muted" style="margin:10px 0 0;font-size:14px">Address doesn't open? See <a href="#find-pi">"I can't open my SyncBox website"</a> below.</p>
       </div>
     </div>
   </div>
@@ -290,6 +291,20 @@ bash server/pi-setup.sh</code></pre>
   <h2 class="center">Questions</h2>
   <div class="faq">
     <details><summary>Do I need a Raspberry Pi?</summary><p>No. A USB stick works too: SyncBox copies your changes onto the stick, tells you when it's safe to unplug, and your other computer picks them up when you plug it in there. A Raspberry Pi is handier because you never have to carry anything, and it gives you a website for your files.</p></details>
+    <details id="find-pi"><summary>I can't open my SyncBox website. What's the right address?</summary>
+      <p>The address depends on <b>your</b> Pi. It's <code>http://</code> + the Pi's name + <code>.local</code>. The name is <code>raspberrypi</code> only if you didn't change it when you set up the Pi.</p>
+      <p><b>Find the right address.</b> Type this on the Pi:</p>
+      <pre><code>hostname      # the name, e.g. mypi → http://mypi.local
+hostname -I   # the IP address, e.g. 192.168.1.25 → http://192.168.1.25</code></pre>
+      <p>The IP address always works, even when the <code>.local</code> name doesn't. You can also find the Pi in your router's list of devices.</p>
+      <p><b>Still not working?</b></p>
+      <ul>
+        <li>Type <code>http://</code> at the start, not <code>https://</code>.</li>
+        <li>Your computer and the Pi must be on the same home network (not a guest Wi-Fi).</li>
+        <li>On Windows, set your home Wi-Fi to <b>Private</b> (click the Wi-Fi icon, then Properties). On a "Public" network Windows can't find <code>.local</code> names.</li>
+        <li>Using a VPN (like NordVPN) on the Pi or your PC? Turn on its <b>LAN discovery</b> or <b>allow local network</b> setting.</li>
+      </ul>
+      <p>Tip: give the Pi a fixed IP address in your router, so the address never changes.</p></details>
     <details><summary>Is it really free?</summary><p>Yes. The software is open source (AGPL-3.0). On your own server it costs nothing. The hosted plans are only for people who don't want to run a server themselves.</p></details>
     <details><summary>Does it work when my computers are never on at the same time?</summary><p>Yes, that's the whole idea. The server is always on, so your laptop leaves its changes there and your PC picks them up when it starts.</p></details>
     <details><summary>Can I sync my whole C: drive?</summary><p>Yes, but Windows itself and installed programs are skipped, because those can't be copied between computers. Your user folder is synced separately, so it lands in the right place even if your username is different on the other PC.</p></details>
@@ -350,6 +365,9 @@ document.querySelectorAll("[data-github-zip]").forEach(a => a.href = gh + "/arch
 document.querySelectorAll("[data-github-license]").forEach(a => a.href = gh + "/blob/main/LICENSE");
 document.querySelectorAll("[data-clone]").forEach(s => s.textContent = "git clone " + gh);
 document.getElementById("year").textContent = new Date().getFullYear();
+// a link to a question (#find-pi) opens it
+const openQuestion = () => { const d = location.hash && document.querySelector(location.hash); if (d && d.tagName === "DETAILS") d.open = true; };
+addEventListener("hashchange", openQuestion); openQuestion();
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dash = CONFIG.dashboardUrl.replace(/\/$/, "");

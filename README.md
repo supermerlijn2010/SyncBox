@@ -9,7 +9,7 @@ No pushing, no pulling, no big cloud company. Just Python, no dependencies.
 ```
   LAPTOP  ──auto──>  Server (e.g. Raspberry Pi)  <──auto──  PC
                                │
-                     website: http://raspberrypi.local
+                     website: http://<pi-name>.local
 ```
 
 ![SyncBox app: everything is on the USB stick, safe to unplug](docs/img/app-usb.png)
@@ -62,7 +62,7 @@ Then it starts SyncBox at `http://<pi-name>.local`. It also starts again automat
 **Updating** to a new version: `git pull && bash server/pi-setup.sh --update`. Your files and password stay. Then download SyncBox again from the website on each computer to get the newest app.
 
 **On each Windows computer:**
-1. Open `http://raspberrypi.local` and log in.
+1. Open the address the setup showed (like `http://raspberrypi.local` or `http://192.168.1.25`) and log in. Can't open it? See [the website's help](https://supermerlijn2010.github.io/SyncBox/#find-pi).
 2. Click **Download SyncBox for Windows** and run it. If Windows warns you, click **More info**, then **Run anyway**.
 3. Pick what to share: **Add a folder**, **Share my whole user folder** or **Share a whole drive**.
 
