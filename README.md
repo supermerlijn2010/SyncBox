@@ -27,6 +27,7 @@ No pushing, no pulling, no big cloud company. Just Python, no dependencies.
   - a safety brake stops mass deletes, for example when a drive is unplugged
 - **Recent activity:** see every file that was sent, received or deleted.
 - **Pause / resume** with one click.
+- **Your choice of place:** pick where folders from your other computers arrive, and move a synced folder anywhere (even to another drive) with **Move...**. It keeps syncing from the new place.
 - **Right-click menu:** "Sync with my other devices" on any folder or drive in File Explorer.
 - **Per-computer access keys:** if a laptop is lost, remove it from the website.
 
@@ -57,6 +58,8 @@ It asks two things:
 Then it starts SyncBox at `http://<pi-name>.local`. It also starts again automatically after every reboot.
 
 **Moving your files later**, for example to a bigger drive: run `bash server/pi-setup.sh --move` and pick the new place. Your files are copied there, and your computers don't need any changes. If the drive isn't plugged in when the Pi starts, SyncBox waits for it instead of starting with an empty folder.
+
+**Updating** to a new version: `git pull && bash server/pi-setup.sh --update`. Your files and password stay. Then download SyncBox again from the website on each computer to get the newest app.
 
 **On each Windows computer:**
 1. Open `http://raspberrypi.local` and log in.

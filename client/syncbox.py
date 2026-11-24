@@ -24,7 +24,7 @@ Command line (normally not needed):
 Only the Python standard library is used.
 """
 
-VERSION = 3
+VERSION = 4
 
 import fnmatch
 import hashlib
@@ -666,13 +666,19 @@ def sync_folder(fid, local, hub, exclude, device, progress=None, on_event=None):
     return changes, failed, pending
 
 
-def default_location(entry):
+def receive_dir(cfg):
+    """Where folders from other computers arrive (the user can change it)."""
+    return Path(cfg.get("receive_dir") or HOME / "SyncBox")
+
+
+def default_location(entry, cfg=None):
+    base = receive_dir(cfg or {})
     if entry.get("drive"):
         d = entry["drive"].upper()
-        return d + "\\" if os.path.isdir(d + "\\") else str(HOME / "SyncBox" / entry["name"])
+        return d + "\\" if os.path.isdir(d + "\\") else str(base / entry["name"])
     if entry.get("home_rel") is not None:
         return str(HOME / entry["home_rel"]) if entry["home_rel"] else str(HOME)
-    return str(HOME / "SyncBox" / entry["name"])
+    return str(base / entry["name"])
 
 
 class Engine(threading.Thread):
@@ -688,12 +694,14 @@ class Engine(threading.Thread):
         self.registry = {}
         self.reported = set()
         self.activity = deque(maxlen=500)   # (time, folder, what, file)
+        self.cycle_lock = threading.Lock()  # held while syncing, so a folder can't move mid-sync
 
     def run(self):
         while True:
             start = time.time()
             try:
-                self.cycle()
+                with self.cycle_lock:
+                    self.cycle()
             except OSError as e:
                 self.hub_status = "Can't reach the server, retrying..."
                 log(f"server problem: {e}")
@@ -740,7 +748,7 @@ class Engine(threading.Thread):
             for fid, entry in reg.items():
                 if fid in cfg["folders"] or fid in cfg["declined"]:
                     continue
-                target = default_location(entry)
+                target = default_location(entry, cfg)
                 if not entry.get("drive") and self.app.overlap_problem(target) is None:
                     self.app.attach(fid, target)
                     log(f"[{fid}] receiving '{entry['name']}' into {target}")
@@ -947,6 +955,7 @@ class App:
         self.cfg = load_config()
         self.lock = threading.Lock()
         self.msgs = queue.Queue()
+        self.moving = set()      # folders being moved right now
 
         if os.name == "nt":
             try:   # sharp text on high-DPI screens
@@ -1000,13 +1009,15 @@ class App:
         except OSError:
             pass
 
-    def overlap_problem(self, path, new_exclude=()):
+    def overlap_problem(self, path, new_exclude=(), skip_fid=None):
         """Folders may not overlap, unless the overlapping part is excluded."""
         cfg = self.snapshot()
         hub = cfg["hub"]
         if hub and not hub.startswith("http") and (norm(path) == norm(hub) or is_inside(path, hub)):
             return "That's the server folder itself."
         for fid, f in cfg["folders"].items():
+            if fid == skip_fid:
+                continue
             other = f["local"]
             ex = self.engine.registry.get(fid, {}).get("exclude", []) if hasattr(self, "engine") else []
             if norm(path) == norm(other):
@@ -1091,11 +1102,12 @@ class App:
         acts = ttk.Frame(self.root, padding=(12, 4))
         acts.pack(fill="x")
         self.b_open = ttk.Button(acts, text="Open", command=self.open_selected)
+        self.b_move = ttk.Button(acts, text="Move...", command=self.move_folder)
         self.b_excl = ttk.Button(acts, text="Don't share a subfolder...", command=self.exclude_subfolder)
         self.b_get = ttk.Button(acts, text="Get it here...", command=self.get_here)
         self.b_stop = ttk.Button(acts, text="Stop syncing on this PC", command=self.stop_here)
         self.b_del = ttk.Button(acts, text="Remove from all devices", command=self.remove_everywhere)
-        for b in (self.b_open, self.b_excl, self.b_get, self.b_stop, self.b_del):
+        for b in (self.b_open, self.b_move, self.b_excl, self.b_get, self.b_stop, self.b_del):
             b.pack(side="left", padx=(0, 6))
 
         bottom = ttk.Frame(self.root, padding=(12, 6, 12, 10))
@@ -1104,6 +1116,12 @@ class App:
         self.v_start = tk.BooleanVar(value=startup_enabled())
         ttk.Checkbutton(bottom, text="Automatically get folders shared from my other devices",
                         variable=self.v_auto, command=self.toggle_auto).pack(anchor="w")
+        recv = ttk.Frame(bottom)
+        recv.pack(anchor="w", padx=(26, 0), pady=(0, 4))
+        self.recv_lbl = ttk.Label(recv, foreground="#555")
+        self.recv_lbl.pack(side="left")
+        ttk.Button(recv, text="Change...", command=self.change_receive_dir).pack(side="left", padx=(8, 0))
+        self.show_receive_dir()
         ttk.Checkbutton(bottom, text="Start SyncBox when I log in",
                         variable=self.v_start, command=self.toggle_start).pack(anchor="w")
         ttk.Label(bottom, foreground="#666",
@@ -1119,7 +1137,8 @@ class App:
     def update_buttons(self):
         fid = self.selected()
         mine = bool(fid and fid in self.cfg["folders"])
-        for b, on in ((self.b_open, mine), (self.b_excl, mine), (self.b_stop, mine),
+        movable = mine and fid not in self.moving and self.can_move(self.cfg["folders"][fid]["local"])
+        for b, on in ((self.b_open, mine), (self.b_move, movable), (self.b_excl, mine), (self.b_stop, mine),
                       (self.b_get, bool(fid) and not mine), (self.b_del, bool(fid))):
             b.state(["!disabled"] if on else ["disabled"])
         self.b_web.state(["!disabled"] if str(self.cfg.get("hub", "")).startswith("http")
@@ -1324,7 +1343,7 @@ class App:
         entry = self.engine.registry.get(fid or "")
         if not entry:
             return
-        default = default_location(entry)
+        default = default_location(entry, self.snapshot())
         ans = messagebox.askyesnocancel("SyncBox", f"Put '{entry['name']}' here?\n\n{default}\n\n"
                                                    "Yes = use this place\nNo = choose another folder")
         if ans is None:
@@ -1380,6 +1399,99 @@ class App:
             self.cfg["auto_receive"] = self.v_auto.get()
             save_config(self.cfg)
         self.engine.wake.set()
+
+    def show_receive_dir(self):
+        self.recv_lbl.config(text=f"New folders arrive in:  {receive_dir(self.snapshot())}")
+
+    def change_receive_dir(self):
+        from tkinter import filedialog
+        path = filedialog.askdirectory(title="Where should folders from your other computers arrive?",
+                                       initialdir=str(receive_dir(self.snapshot())))
+        if not path:
+            return
+        with self.lock:
+            self.cfg["receive_dir"] = os.path.normpath(path)
+            save_config(self.cfg)
+        self.show_receive_dir()
+
+    @staticmethod
+    def can_move(local):
+        """Whole drives and the user folder itself can't be moved."""
+        p = Path(local)
+        return p.parent != p and norm(local) != norm(HOME)
+
+    def move_folder(self):
+        from tkinter import filedialog, messagebox
+        fid = self.selected()
+        if not fid or fid not in self.cfg["folders"] or fid in self.moving:
+            return
+        local = self.cfg["folders"][fid]["local"]
+        if not self.can_move(local):
+            messagebox.showerror("SyncBox", "A whole drive or your user folder can't be moved.")
+            return
+        parent = filedialog.askdirectory(title=f"Move '{Path(local).name}' into which folder?",
+                                         initialdir=str(Path(local).parent))
+        if not parent:
+            return
+        target = os.path.normpath(os.path.join(parent, Path(local).name))
+        if norm(target) == norm(local):
+            return
+        if os.path.exists(target):
+            messagebox.showerror("SyncBox", f"There's already a folder called '{Path(local).name}' there:\n"
+                                            f"{target}\n\nChoose another place.")
+            return
+        if is_inside(target, local):
+            messagebox.showerror("SyncBox", "You can't move a folder into itself.")
+            return
+        ex = self.engine.registry.get(fid, {}).get("exclude", [])
+        problem = self.overlap_problem(target, ex, skip_fid=fid)
+        if problem:
+            messagebox.showerror("SyncBox", f"Can't move it there.\n\n{problem}")
+            return
+        if not messagebox.askyesno("SyncBox", f"Move this folder and everything in it?\n\nFrom:  {local}\n"
+                                              f"To:      {target}\n\nIt keeps syncing from the new place. "
+                                              "Close any files from it that are open first."):
+            return
+        self.moving.add(fid)
+        self.engine.status[fid] = "Moving..."
+        threading.Thread(target=self._move_worker, args=(fid, local, target), daemon=True).start()
+
+    def _move_worker(self, fid, local, target):
+        def use_target():
+            with self.lock:
+                if fid in self.cfg["folders"]:
+                    self.cfg["folders"][fid]["local"] = target
+                    save_config(self.cfg)
+        try:
+            with self.engine.cycle_lock:          # wait until the current sync round is done
+                self.engine.status[fid] = "Moving..."
+                if os.path.splitdrive(local)[0].lower() == os.path.splitdrive(target)[0].lower():
+                    os.rename(local, target)      # same drive: instant, all or nothing
+                    use_target()
+                    leftovers = False
+                else:
+                    # other drive: first a complete copy, then switch, then clean up the old place.
+                    # If the copy fails, nothing changes and the old folder keeps syncing.
+                    shutil.copytree(local, target, symlinks=True)
+                    use_target()
+                    shutil.rmtree(local, ignore_errors=True)
+                    leftovers = os.path.exists(local)
+            log(f"[{fid}] moved from {local} to {target}")
+            msg = f"Done! The folder is now in:\n{target}"
+            if leftovers:
+                msg += f"\n\nSome files in the old place couldn't be removed (still open?):\n{local}\n" \
+                       "They're no longer synced, so you can delete them yourself."
+            self.msgs.put("info\n" + msg)
+        except OSError as e:
+            log(f"[{fid}] move failed: {e}")
+            msg = f"Couldn't move the folder, so it stays where it was:\n{local}\n\n{e}"
+            if os.path.exists(target):
+                msg += f"\n\nA partial copy is in {target}. You can delete it."
+            self.msgs.put("error\n" + msg)
+        finally:
+            self.moving.discard(fid)
+            self.engine.status[fid] = "Waiting..."
+            self.engine.wake.set()
 
     def toggle_pause(self):
         with self.lock:
@@ -1555,6 +1667,10 @@ class App:
                 self.add_folder(m[4:].strip().strip('"'))
             elif m == "show":
                 self.show()
+            elif m.startswith(("info\n", "error\n")):
+                from tkinter import messagebox
+                kind, _, text = m.partition("\n")
+                (messagebox.showinfo if kind == "info" else messagebox.showerror)("SyncBox", text)
             elif m == "quit":
                 self.quit()
         self.root.after(200, self.poll_msgs)

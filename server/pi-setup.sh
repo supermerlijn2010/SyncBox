@@ -7,6 +7,7 @@
 #   bash server/pi-setup.sh                 # asks where to save the files (SD card or a USB drive)
 #   bash server/pi-setup.sh /mnt/ssd/sync   # or say it straight away
 #   bash server/pi-setup.sh --move          # later: move your files to another place
+#   git pull && bash server/pi-setup.sh --update   # install a new version (keeps files and password)
 set -e
 
 APP_DIR=/opt/syncbox
@@ -210,15 +211,33 @@ move_files() {
   echo "    sudo rm -rf \"$old\""
 }
 
-# ------------------------------------------------------------ install
+# ------------------------------------------------------------ install / update
 
-install() {
-  local client="$HERE/syncbox.py"
-  [ -f "$client" ] || client="$HERE/../client/syncbox.py"
-  if [ ! -f "$HERE/syncbox_web.py" ] || [ ! -f "$client" ]; then
+find_client() {
+  CLIENT="$HERE/syncbox.py"
+  [ -f "$CLIENT" ] || CLIENT="$HERE/../client/syncbox.py"
+  if [ ! -f "$HERE/syncbox_web.py" ] || [ ! -f "$CLIENT" ]; then
     echo "Missing files. Run this from the SyncBox repository (server/ and client/ folders)."
     exit 1
   fi
+}
+
+update() {
+  [ -f "$SERVICE" ] || { echo "SyncBox isn't installed yet. Run: bash server/pi-setup.sh"; exit 1; }
+  find_client
+  DATA_DIR="$(current_dir)"
+  echo "== Updating SyncBox (your files and password stay as they are) =="
+  sudo cp "$HERE/syncbox_web.py" "$CLIENT" "$APP_DIR/"
+  write_service
+  sudo systemctl restart syncbox
+  echo "Done. On each Windows computer, download SyncBox again from the website and run it"
+  echo "to get the newest app."
+}
+
+install() {
+  local client
+  find_client
+  client="$CLIENT"
 
   echo "== Installing what's needed =="
   sudo apt-get update -y
@@ -256,7 +275,8 @@ install() {
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "$1" in
     --move) move_files ;;
-    -h|--help) sed -n '2,9p' "$0" ;;
+    --update) update ;;
+    -h|--help) sed -n '2,10p' "$0" ;;
     *) install "$1" ;;
   esac
 fi
