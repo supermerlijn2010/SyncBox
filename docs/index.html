@@ -101,6 +101,9 @@ header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 8
 .badge.warn{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#b45309}
 @media (prefers-color-scheme:dark){.badge.warn{color:#fbbf24}}
 
+.notice{max-width:760px;margin:32px auto 0;border-left:4px solid #f59e0b;font-size:15px}
+.notice p{margin:8px 0;color:var(--muted)}
+
 /* waitlist */
 .waitlist{max-width:560px;margin:40px auto 0}
 .waitlist form{display:flex;gap:10px;flex-wrap:wrap}
@@ -238,6 +241,12 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
   </div>
   <div class="plans" id="plans"></div>
 
+  <div class="card notice" role="note">
+    <b>&#9888; Hosted plans sync your files. They are not a backup or storage plan.</b>
+    <p>We back up our server once a day. If the server breaks between two backups, the changes made since the last backup are gone. For example: you add a file, SyncBox sends it to the server, and then you delete it on your computer. If the server crashes before the next backup, that file is lost for good.</p>
+    <p style="margin-bottom:0">Always keep your own copy of files you can't lose, like on an external drive.</p>
+  </div>
+
   <div class="waitlist card" id="waitlist">
     <h3>Join the waitlist for hosted plans</h3>
     <p class="muted" style="margin-top:0">Hosted plans aren't open yet. Leave your email and we'll let you know when they are. No spam, and we never charge you without asking.</p>
@@ -286,6 +295,7 @@ bash server/pi-setup.sh</code></pre>
     <details><summary>Can I sync my whole C: drive?</summary><p>Yes, but Windows itself and installed programs are skipped, because those can't be copied between computers. Your user folder is synced separately, so it lands in the right place even if your username is different on the other PC.</p></details>
     <details><summary>Can I use it outside my home?</summary><p>On your own server, install the free Tailscale app on the server and your computers to reach it from anywhere. Hosted plans work everywhere automatically.</p></details>
     <details><summary>Which systems are supported?</summary><p>The SyncBox app is made for Windows 10 and 11. The server runs on any Linux, including Raspberry Pi OS. The website works in every modern browser, phones too.</p></details>
+    <details><summary>Is SyncBox a backup?</summary><p>No. SyncBox keeps your computers the same, so when you delete a file on one computer, it's deleted on the others too (it goes to the trash first, where you can restore it). Hosted plans are backed up once a day, but anything changed since the last backup can be lost if the server breaks. Keep your own backup of important files.</p></details>
     <details><summary>What happens to my files if I stop using SyncBox?</summary><p>Nothing. They're normal files in normal folders on your computers. SyncBox only copies them, it never locks them away.</p></details>
   </div>
 </div></section>
