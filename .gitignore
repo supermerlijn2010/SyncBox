@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.claude/
+*.log
+# local test/sync data
+syncbox-data/
+.syncbox_hub
+.filesync_state.json
+.filesync_trash/
+
+# kept locally, not published
+tests/
+.github/
