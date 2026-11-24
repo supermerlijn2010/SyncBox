@@ -47,10 +47,16 @@ From then on, plug the stick in and SyncBox syncs by itself. It's fine if the st
 ```bash
 git clone https://github.com/supermerlijn2010/SyncBox
 cd SyncBox
-bash server/pi-setup.sh              # or: bash server/pi-setup.sh /mnt/ssd/sync
+bash server/pi-setup.sh
 ```
 
-It asks you to choose a website password and starts SyncBox at `http://<pi-name>.local`. It also starts again automatically after every reboot.
+It asks two things:
+- **Where to save the files:** on the SD card, or on a USB drive you plugged in. It sets up a USB drive so it's always there after a restart.
+- **A password** for the website.
+
+Then it starts SyncBox at `http://<pi-name>.local`. It also starts again automatically after every reboot.
+
+**Moving your files later**, for example to a bigger drive: run `bash server/pi-setup.sh --move` and pick the new place. Your files are copied there, and your computers don't need any changes. If the drive isn't plugged in when the Pi starts, SyncBox waits for it instead of starting with an empty folder.
 
 **On each Windows computer:**
 1. Open `http://raspberrypi.local` and log in.

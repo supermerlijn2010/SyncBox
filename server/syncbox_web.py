@@ -1026,7 +1026,20 @@ def main():
         print("Password saved.")
         return
 
-    Handler.store = Store(a.root)
+    # If this folder was used before but its marker is gone, the drive is probably
+    # not plugged in or not mounted. Don't start with an empty folder: the computers
+    # would think every file was deleted. (systemd tries again every few seconds.)
+    root = Path(a.root).resolve()
+    known = load_conf().get("roots", [])
+    if str(root) in known and not (root / HUB_MARKER).exists():
+        print(f"Can't find the SyncBox files in {root}. Is the drive plugged in? Trying again soon.")
+        sys.exit(1)
+    Handler.store = Store(root)
+    if str(root) not in known:
+        with conf_lock:
+            conf = load_conf()
+            conf["roots"] = conf.get("roots", []) + [str(root)]
+            save_conf(conf)
     srv = ThreadingHTTPServer((a.host, a.port), Handler)
     srv.daemon_threads = True
     print(f"SyncBox server running on port {a.port}, files in {Handler.store.root}")
